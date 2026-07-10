@@ -1,4 +1,5 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useCallback } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import Navbar from "@/components/layout/Navbar";
 import Hero from "@/components/sections/Hero";
@@ -16,14 +17,13 @@ import Contact from "@/components/sections/Contact";
 import Footer from "@/components/layout/Footer";
 import ParticleField from "@/components/ui/ParticleField";
 
-const LoadingScreen = lazy(() => import("@/components/sections/LoadingScreen"));
+import LoadingScreen from "@/components/sections/LoadingScreen";
 
 export default function App() {
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 3500);
-    return () => clearTimeout(timer);
+  const handleLoadingFinish = useCallback(() => {
+    setLoading(false);
   }, []);
 
   return (
@@ -32,31 +32,37 @@ export default function App() {
         <title>Best Unisex Salon in Barasat, Kolkata | Glass Shine Salon & Academy</title>
         <meta name="description" content="Award-winning unisex salon and beauty academy in Barasat, Kolkata. Hair styling, bridal makeup, skin & nail care. Book your appointment today." />
       </Helmet>
-      {loading ? (
-        <Suspense fallback={<div className="fixed inset-0 z-[100] bg-background" />}>
-          <LoadingScreen />
-        </Suspense>
-      ) : (
-        <>
-          <ParticleField />
-          <Navbar />
-          <main className="relative z-10">
-            <Hero />
-            <ServicesMarquee />
-            <About />
-            <Services />
-            <Portfolio />
-            <Process />
-            <Reservation />
-            <Testimonials />
-            <Team />
-            <Pricing />
-            <FAQ />
-            <Contact />
-          </main>
-          <Footer />
-        </>
-      )}
+
+      <AnimatePresence mode="wait">
+        {loading ? (
+          <LoadingScreen key="loading" onFinish={handleLoadingFinish} />
+        ) : (
+          <motion.div
+            key="site"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+          >
+            <ParticleField />
+            <Navbar />
+            <main className="relative z-10">
+              <Hero />
+              <ServicesMarquee />
+              <About />
+              <Services />
+              <Portfolio />
+              <Process />
+              <Reservation />
+              <Testimonials />
+              <Team />
+              <Pricing />
+              <FAQ />
+              <Contact />
+            </main>
+            <Footer />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
