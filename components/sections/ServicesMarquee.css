@@ -1,0 +1,51 @@
+.service-text {
+    font-family: "Cormorant Garamond", serif;
+    font-weight: 300;
+    font-style: italic;
+
+    font-size: clamp(64px, 11vw, 180px);
+
+    letter-spacing: -.04em;
+    line-height: .9;
+
+    color: rgba(255,255,255,.08);
+
+    transition:
+        color .45s ease,
+        opacity .45s ease;
+
+    user-select: none;
+}
+
+.group:hover .service-text {
+
+    color: #C9A227;
+
+    opacity: 1;
+}
+
+.separator {
+
+    color: #C9A227;
+
+    font-size: 18px;
+
+    margin-inline: 40px;
+
+    opacity: .85;
+
+    flex-shrink: 0;
+
+    user-select: none;
+}
+
+@keyframes marquee-right {
+
+    from {
+        transform: translateX(-50%);
+    }
+
+    to {
+        transform: translateX(0%);
+    }
+}
