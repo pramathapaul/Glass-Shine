@@ -1,231 +1,174 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 
-export default function LoadingScreen() {
+function useProgress(duration: number, onComplete: () => void) {
   const [progress, setProgress] = useState(0);
-  const [isComplete, setIsComplete] = useState(false);
-  const [phase, setPhase] = useState(0);
+  const frameRef = useRef<number>(0);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    const phases = [
-      { target: 25, duration: 800, label: "Initializing..." },
-      { target: 50, duration: 1000, label: "Loading Experience..." },
-      { target: 75, duration: 900, label: "Preparing Canvas..." },
-      { target: 100, duration: 700, label: "Ready" },
-    ];
+    const start = performance.now();
 
-    let currentPhase = 0;
-    let currentProgress = 0;
-
-    const animatePhase = () => {
-      if (currentPhase >= phases.length) {
-        setTimeout(() => setIsComplete(true), 400);
-        return;
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const pct = Math.min(elapsed / duration, 1);
+      setProgress(pct);
+      if (pct < 1) {
+        frameRef.current = requestAnimationFrame(tick);
+      } else {
+        onCompleteRef.current();
       }
-
-      const { target, duration, label } = phases[currentPhase];
-      const startTime = Date.now();
-      const startProgress = currentProgress;
-
-      const tick = () => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        currentProgress = startProgress + (target - startProgress) * eased;
-        setProgress(currentProgress);
-        setPhase(currentPhase);
-
-        if (progress < 1) {
-          requestAnimationFrame(tick);
-        } else {
-          currentProgress = target;
-          currentPhase++;
-          setTimeout(animatePhase, 150);
-        }
-      };
-      requestAnimationFrame(tick);
     };
 
-    animatePhase();
-  }, []);
+    frameRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [duration]);
+
+  return progress;
+}
+
+const percentageSteps = [0, 8, 17, 26, 41, 58, 74, 91, 100];
+
+function currentDisplayPct(progress: number): number {
+  let display = 0;
+  for (const step of percentageSteps) {
+    if (progress * 100 >= step) display = step;
+  }
+  return display;
+}
+
+export default function LoadingScreen({ onFinish }: { onFinish?: () => void }) {
+  const [exiting, setExiting] = useState(false);
+
+  const handleExitComplete = () => {
+    onFinish?.();
+  };
+
+  const handleComplete = () => {
+    setExiting(true);
+  };
+
+  const progress = useProgress(3200, handleComplete);
+
+  const displayPct = currentDisplayPct(progress);
 
   return (
-    <AnimatePresence mode="wait">
-      {!isComplete && (
-        <motion.div
-          initial={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }}
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background"
-        >
-          {/* Ambient background particles */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            {[...Array(30)].map((_, i) => (
-              <motion.div
-                key={i}
-                suppressHydrationWarning
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: [0, 0.3, 0], scale: [0, 1, 0] }}
-                transition={{
-                  duration: 3 + Math.random() * 2,
-                  repeat: Infinity,
-                  delay: Math.random() * 2,
-                  ease: "easeInOut"
-                }}
-                className="absolute rounded-full bg-primary/20"
-                style={{
-                  width: 4 + Math.random() * 8,
-                  height: 4 + Math.random() * 8,
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                }}
-              />
-            ))}
-          </div>
+    <motion.div
+      initial={{ opacity: 1 }}
+      animate={exiting ? { opacity: 0 } : { opacity: 1 }}
+      onAnimationComplete={() => { if (exiting) handleExitComplete(); }}
+      transition={exiting ? { duration: 0.8, ease: "easeInOut" } : {}}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0B0B0B] overflow-hidden"
+    >
+      {/* ── Film grain overlay ── */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.025]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
+          backgroundSize: "200px 200px",
+        }}
+      />
 
-          {/* Main content */}
-          <div className="relative flex flex-col items-center z-10">
-            {/* Logo with premium ring animation */}
-            <motion.div
-              initial={{ scale: 0.6, opacity: 0, rotate: -180 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-              className="relative"
-            >
-              {/* Outer rotating ring */}
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                className="absolute -inset-4 rounded-full border-2 border-primary/20"
-              >
-                <motion.div
-                  animate={{ rotate: -360 }}
-                  transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                  className="absolute -inset-1 rounded-full border-t-2 border-primary/40"
-                />
-              </motion.div>
-
-              {/* Middle ring */}
-              <motion.div
-                animate={{ rotate: -360 }}
-                transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-                className="absolute -inset-2 rounded-full border-1 border-primary/10"
-              />
-
-              {/* Logo */}
-              <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-primary via-primary-light to-primary-dark flex items-center justify-center shadow-[0_4px_24px_rgba(200,165,102,0.3),0_8px_48px_rgba(200,165,102,0.2)]">
-                <motion.div
-                  animate={{ scale: [1, 1.02, 1] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-transparent"
-                />
-                <span className="text-5xl md:text-6xl font-bold text-white font-serif tracking-tight relative z-10">G</span>
-              </div>
-
-              {/* Inner pulse ring */}
-              <motion.div
-                animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0, 0.4] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute inset-0 rounded-full border-2 border-primary/30"
-              />
-            </motion.div>
-
-            {/* Brand name */}
-            <motion.div
-              initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="mt-10 text-center"
-            >
-              <motion.h1
-                className="text-3xl md:text-4xl font-bold font-serif text-foreground tracking-tight"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.6 }}
-              >
-                Glass Shine
-              </motion.h1>
-              <motion.p
-                className="text-sm text-muted mt-2 tracking-widest uppercase font-light"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.6 }}
-              >
-                Unisex Salon & Academy
-              </motion.p>
-            </motion.div>
-
-            {/* Premium progress bar */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="mt-14 w-[300px] max-w-[90vw] relative"
-            >
-              {/* Track */}
-              <div className="h-1 bg-foreground/5 rounded-full overflow-hidden relative">
-                {/* Shimmer overlay */}
-                <motion.div
-                  animate={{ x: ["-100%", "100%"] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent"
-                />
-                {/* Progress fill */}
-                <motion.div
-                  className="h-full rounded-full relative bg-gradient-to-r from-primary via-primary-light to-primary-dark"
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-
-              {/* Progress percentage */}
-              <motion.div
-                className="absolute -bottom-8 left-1/2 -translate-x-1/2 font-mono text-xs text-muted"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                {Math.round(progress)}%
-              </motion.div>
-
-              {/* Phase label */}
-              <motion.p
-                className="text-center text-xs text-muted/70 uppercase tracking-wider mt-4 min-h-[1.25rem]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                {phase === 0 && "Initializing..."}
-                {phase === 1 && "Loading Experience..."}
-                {phase === 2 && "Preparing Canvas..."}
-                {phase === 3 && "Ready"}
-              </motion.p>
-            </motion.div>
-          </div>
-
-          {/* Bottom decorative element */}
+      {/* ── Floating gold particles ── */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {Array.from({ length: 18 }).map((_, i) => (
           <motion.div
-            animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.05, 1] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-2"
-          >
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                className="w-2 h-2 rounded-full bg-primary/60"
-                animate={{ y: [0, -10, 0], scale: [1, 1.2, 1] }}
-                transition={{ duration: 1, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
-              />
-            ))}
-          </motion.div>
+            key={i}
+            className="absolute rounded-full bg-[#C9A227]"
+            style={{
+              width: 1 + Math.random() * 1,
+              height: 1 + Math.random() * 1,
+              left: `${Math.random() * 100}%`,
+              bottom: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [0, -(200 + Math.random() * 300)],
+              x: [0, (Math.random() - 0.5) * 60],
+              opacity: [0.12, 0.08, 0],
+            }}
+            transition={{
+              duration: 10 + Math.random() * 12,
+              repeat: Infinity,
+              delay: Math.random() * 8,
+              ease: "linear",
+            }}
+          />
+        ))}
+      </div>
 
-          {/* Decorative corner accents */}
-          <div className="absolute top-8 left-8 w-24 h-1 border-t border-primary/30" />
-          <div className="absolute top-8 left-8 w-1 h-24 border-l border-primary/30" />
-          <div className="absolute bottom-8 right-8 w-24 h-1 border-b border-primary/30" />
-          <div className="absolute bottom-8 right-8 w-1 h-24 border-r border-primary/30" />
-        </motion.div>
-      )}
-    </AnimatePresence>
+      {/* ── Centered content ── */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 1.2, ease: "easeOut" }}
+        className="relative z-10 flex flex-col items-center"
+      >
+        {/* EST. 2019 */}
+        <span
+          className="text-[#C9A227] text-[12px] uppercase tracking-[0.35em] mb-12"
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          EST. 2019 &bull; BARASAT
+        </span>
+
+        {/* Logo */}
+        <h1
+          className="font-light leading-[0.9] tracking-[-0.04em] text-center select-none"
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: "clamp(56px, 8vw, 120px)",
+          }}
+        >
+          <span className="text-[#F5F2ED] font-[400]">Glass </span>
+          <span className="italic text-[#C9A227] font-[400]">Shine</span>
+        </h1>
+
+        {/* Subtitle */}
+        <span
+          className="text-[rgba(255,255,255,0.45)] text-[13px] uppercase tracking-[0.35em] mt-6"
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          UNISEX SALON &amp; ACADEMY
+        </span>
+      </motion.div>
+
+      {/* ── Bottom loading indicator ── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, delay: 0.8 }}
+        className="absolute bottom-[60px] left-1/2 -translate-x-1/2 z-10 flex items-center gap-5"
+      >
+        {/* LOADING label */}
+        <span
+          className="text-[rgba(255,255,255,0.45)] text-[11px] uppercase tracking-[0.35em]"
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          LOADING
+        </span>
+
+        {/* Progress bar */}
+        <div className="w-[280px] sm:w-[320px] h-[2px] bg-[rgba(255,255,255,0.08)] relative overflow-hidden">
+          <motion.div
+            className="absolute inset-y-0 left-0 bg-[#C9A227]"
+            animate={{ width: `${progress * 100}%` }}
+            transition={{ duration: 0.1, ease: "linear" }}
+            style={{ width: `${progress * 100}%` }}
+          />
+        </div>
+
+        {/* Percentage */}
+        <span
+          className="text-[rgba(255,255,255,0.45)] text-[11px] tabular-nums w-[32px] text-right"
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          {displayPct}%
+        </span>
+      </motion.div>
+    </motion.div>
   );
 }
